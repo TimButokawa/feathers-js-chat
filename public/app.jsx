@@ -21,71 +21,52 @@ const ComposeMessage = React.createClass({
     this.setState({ text: ev.target.value });
   },
   sendMessage(ev) {
-    const messageService = app.service('messages');
-    messageService.create({
-      text: this.state.text
-    }).then(() => this.setState({ text: '' }));
-    ev.preventDefault();
+    app.service('messages').create(this.state)
+      .then(() => this.setState({ text: '' }))
+    ev.preventDefault()
   },
   render() {
     return (
-        <form
-          className="flex flex-row flex-space-between"
-          onSubmit={this.sendMessage}>
-          <input
-            type="text"
-            name="text"
-            className="flex flex-1"
-            value={this.state.text}
-            onChange={this.updateText} />
-          <button
-            className="button-primary"
-            type="submit">Send</button>
-        </form>
+      <form className="flex flex-row flex-space-between" onSubmit={this.sendMessage}>
+        <input type="text" name="text" className="flex flex-1"
+          value={this.state.text} onChange={this.updateText} />
+        <button className="button-primary" type="submit">Send</button>
+      </form>
     );
   }
 });
 
 const UserList = React.createClass({
   logout() {
-    app.logout().then(() => window.location.href = '/index.html');
+    app.logout().then(() => window.location.href = '/login.html');
+  },
+  renderUserItem(user) {
+    return (
+      <li>
+        <a className="block relative" href="#">
+          <img src={user.avatar || PLACEHOLDER} className="avatar" />
+          <span className="absolute username">{user.email}</span>
+        </a>
+      </li>
+    );
   },
   render() {
     const users = this.props.users;
     return (
-        <aside
-          className="sidebar col col-3 flex flex-column flex-space-between">
-          <header
-            className="flex flex-row flex-center">
-            <h4
-              className="font-300 text-center">
+        <aside className="sidebar col col-3 flex flex-column flex-space-between">
+          <header className="flex flex-row flex-center">
+            <h4 className="font-300 text-center">
               <span className="font-600 online-count">{users.length}</span> users
             </h4>
           </header>
-          <ul
-            className="flex flex-column flex-1 list-unstyled user-list">
+
+          <ul className="flex flex-column flex-1 list-unstyled user-list">
             {users.map(user =>
-              <li>
-                <a
-                  className="block relative"
-                  href="#">
-                  <img
-                    src={user.avatar || PLACEHOLDER}
-                    className="avatar" />
-                  <span
-                    className="absolute username">{user.email}</span>
-                </a>
-              </li>
+              this.renderUserItem(user)
             )}
           </ul>
-          <footer
-            className="flex flex-row flex-center">
-            <a
-              className="logout button button-primary"
-              href="#"
-              onClick={this.logout}>
-              Sign out
-            </a>
+          <footer className="flex flex-row flex-center">
+            <a href="#" className="logout button button-primary" onClick={this.logout}>Sign Out</a>
           </footer>
         </aside>
     );
@@ -134,7 +115,7 @@ const ChatApp = React.createClass({
   getInitialState() {
     return {
       users: [],
-      message: []
+      messages: []
     };
   },
   componentDidUpdate: function() {
@@ -145,9 +126,15 @@ const ChatApp = React.createClass({
     const userService = app.service('users');
     const messageService = app.service('messages');
 
+    userService.find().then(page => this.setState({ users: page.data }));
+
+    userService.on('created', user => this.setState({
+      users: this.state.users.concat(user)
+    }));
+
     messageService.find({
       query: {
-        $sort: { createdAt: -1 },
+        $sort: { createdAt: 1 },
         $limit: this.props.limit || 10
       }
     }).then(page => this.setState({ messages: page.data.reverse() }));
@@ -174,30 +161,26 @@ const ChatApp = React.createClass({
   }
 });
 
-app.authenticate().then(() => {
-  ReactDOM.render(
-    <div
-      id="app"
-      className="flex flex-column">
-      <header
-        className="title-bar flex flex-row flex-center">
-        <div
-          className="title-wrapper block center-element">
-          <img
-            className="logo"
-            src="http://feathersjs.com/img/feathers-logo-wide.png"
-            alt="logo" />
-          <span
-            className="title">Chat</span>
+const App = () => {
+  return (
+    <div id="app" className="flex flex-column">
+      <header className="title-bar flex flex-row flex-center">
+        <div className="title-wrapper block center-element">
+          <img className="logo" src="http://feathersjs.com/img/feathers-logo-wide.png" alt="Feathers Logo" />
+          <span className="title">Chat</span>
         </div>
       </header>
-      <ChatApp></ChatApp>
-    </div>,
-    document.body
-  );
+      <ChatApp />
+    </div>
+);
+}
+
+app.authenticate().then(() => {
+  ReactDOM.render(<App />, document.body)
 }).catch(error => {
   if(error.code === 401) {
-    window.location.href = '/login.html';
+    window.location.href = '/login.html'
   }
-  console.error(error);
+
+  console.error(error)
 });
